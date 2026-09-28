@@ -1,0 +1,20 @@
+{
+  "name": "network-qos-throughput-backend",
+  "version": "1.0.0",
+  "description": "Servicio de referencia para pruebas de Throughput (descarga y subida) - TP01 Network QoS Monitor",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.26.2",
+    "@fastify/cors": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
+  }
+}

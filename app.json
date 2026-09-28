@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Network QoS Monitor",
+    "slug": "network-qos-monitor",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "networkqosmonitor",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.agus.networkqosmonitor",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "fetch"
+        ],
+        "NSLocationWhenInUseUsageDescription": "Esta app requiere acceso a la ubicación para georreferenciar las mediciones de calidad de red.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Esta app requiere ubicación en segundo plano para registrar cobertura en pruebas de campo."
+      }
+    },
+    "android": {
+      "package": "com.agus.networkqosmonitor",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F19",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "ACCESS_WIFI_STATE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_PHONE_STATE",
+        "POST_NOTIFICATIONS"
+      ],
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
