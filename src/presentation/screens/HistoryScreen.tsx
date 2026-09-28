@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,96 +11,40 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
-import { MeasurementSession } from '../../domain/models/session';
+import { useMeasurementStore } from '../state/useMeasurementStore';
+import { NetworkTechnology } from '../../domain/models/network';
 
 interface HistoryScreenProps {
   navigation: any;
 }
 
 export const HistoryScreen: React.FC<HistoryScreenProps> = () => {
-  // Lista de sesiones de muestra (se poblarán automáticamente desde IMeasurementRepository)
-  const [sessions, setSessions] = useState<MeasurementSession[]>([
-    {
-      id: 'session-001',
-      timestamp: Date.now() - 3600000,
-      durationMs: 4500,
-      isBackground: false,
-      networkState: {
-        isConnected: true,
-        isInternetReachable: true,
-        type: 'WIFI',
-        isWifi: true,
-        isCellular: false,
-        details: { ipAddress: '192.168.1.45', ssid: 'Fibertel-WiFi' },
-      },
-      telephony: {
-        carrierName: 'Claro AR',
-        networkType: '4G_LTE',
-        rssiDbm: -78,
-      },
-      location: {
-        latitude: -32.484,
-        longitude: -58.232,
-        accuracy: 12,
-        timestamp: Date.now() - 3600000,
-      },
-      latencyResults: [],
-      throughput: {
-        downloadMbps: 54.2,
-        uploadMbps: 21.0,
-        downloadBytesTransferred: 5242880,
-        uploadBytesTransferred: 2097152,
-        durationMs: 3200,
-        serverUrl: 'http://10.0.2.2:3000',
-      },
-      qosSummary: {
-        overallScore: 92,
-        rating: 'EXCELLENT',
-        averageLatencyMs: 22.4,
-        averageJitterMs: 2.8,
-        averagePacketLossPercent: 0,
-        diagnostics: ['Conexión de alto rendimiento.'],
-      },
-    },
-    {
-      id: 'session-002',
-      timestamp: Date.now() - 86400000,
-      durationMs: 5100,
-      isBackground: true,
-      networkState: {
-        isConnected: true,
-        isInternetReachable: true,
-        type: '4G_LTE',
-        isWifi: false,
-        isCellular: true,
-      },
-      telephony: {
-        carrierName: 'Personal',
-        networkType: '4G_LTE',
-        rssiDbm: -98,
-      },
-      location: {
-        latitude: -32.481,
-        longitude: -58.235,
-        accuracy: 18,
-        timestamp: Date.now() - 86400000,
-      },
-      latencyResults: [],
-      throughput: null,
-      qosSummary: {
-        overallScore: 71,
-        rating: 'GOOD',
-        averageLatencyMs: 46.1,
-        averageJitterMs: 8.4,
-        averagePacketLossPercent: 1.2,
-        diagnostics: ['Muestreo periódico en segundo plano.'],
-      },
-    },
-  ]);
+  const { history, loadHistory, deleteSession } = useMeasurementStore();
+  const [selectedFilter, setSelectedFilter] = useState<'ALL' | NetworkTechnology>('ALL');
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const filterOptions: Array<{ label: string; value: 'ALL' | NetworkTechnology }> = [
+    { label: 'Todas', value: 'ALL' },
+    { label: 'Wi-Fi', value: 'WIFI' },
+    { label: '4G LTE', value: '4G_LTE' },
+    { label: '5G NR', value: '5G_NR' },
+  ];
+
+  const filteredHistory = history.filter((session) => {
+    if (selectedFilter === 'ALL') return true;
+    return session.networkState.type === selectedFilter;
+  });
 
   const handleExportJson = async () => {
+    if (filteredHistory.length === 0) {
+      Alert.alert('Sin datos', 'No hay sesiones registradas para exportar.');
+      return;
+    }
     try {
-      const jsonContent = JSON.stringify(sessions, null, 2);
+      const jsonContent = JSON.stringify(filteredHistory, null, 2);
       await Share.share({
         message: jsonContent,
         title: 'Exportación QoS - JSON',
@@ -111,25 +55,32 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = () => {
   };
 
   const handleExportCsv = async () => {
+    if (filteredHistory.length === 0) {
+      Alert.alert('Sin datos', 'No hay sesiones registradas para exportar.');
+      return;
+    }
     try {
-      const header = 'id,timestamp,networkType,carrier,rssiDbm,avgLatencyMs,jitterMs,packetLoss,downloadMbps,uploadMbps,score,lat,lon\n';
-      const rows = sessions.map((s) =>
-        [
-          s.id,
-          new Date(s.timestamp).toISOString(),
-          s.networkState.type,
-          s.telephony.carrierName || 'N/A',
-          s.telephony.rssiDbm ?? '',
-          s.qosSummary.averageLatencyMs,
-          s.qosSummary.averageJitterMs,
-          s.qosSummary.averagePacketLossPercent,
-          s.throughput?.downloadMbps ?? '',
-          s.throughput?.uploadMbps ?? '',
-          s.qosSummary.overallScore,
-          s.location?.latitude ?? '',
-          s.location?.longitude ?? '',
-        ].join(',')
-      ).join('\n');
+      const header =
+        'id,timestamp,networkType,carrier,rssiDbm,avgLatencyMs,jitterMs,packetLoss,downloadMbps,uploadMbps,score,lat,lon\n';
+      const rows = filteredHistory
+        .map((s) =>
+          [
+            s.id,
+            new Date(s.timestamp).toISOString(),
+            s.networkState.type,
+            s.telephony.carrierName || 'N/A',
+            s.telephony.rssiDbm ?? '',
+            s.qosSummary.averageLatencyMs,
+            s.qosSummary.averageJitterMs,
+            s.qosSummary.averagePacketLossPercent,
+            s.throughput?.downloadMbps ?? '',
+            s.throughput?.uploadMbps ?? '',
+            s.qosSummary.overallScore,
+            s.location?.latitude ?? '',
+            s.location?.longitude ?? '',
+          ].join(',')
+        )
+        .join('\n');
 
       await Share.share({
         message: header + rows,
@@ -173,73 +124,111 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = () => {
           </TouchableOpacity>
         </View>
 
+        {/* Filtros de Red (RF-09) */}
+        <View style={styles.filterRow}>
+          {filterOptions.map((opt) => {
+            const isActive = selectedFilter === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
+                onPress={() => setSelectedFilter(opt.value)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Lista de Sesiones */}
-        <Text style={styles.sectionTitle}>SESIONES GUARDADAS ({sessions.length})</Text>
+        <Text style={styles.sectionTitle}>
+          SESIONES REGISTRADAS ({filteredHistory.length})
+        </Text>
 
-        {sessions.map((item) => {
-          const badgeColor = getBadgeColor(item.qosSummary.overallScore);
-          const dateStr = new Date(item.timestamp).toLocaleString('es-AR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-          });
+        {filteredHistory.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyTitle}>Sin mediciones registradas</Text>
+            <Text style={styles.emptySubtitle}>
+              Ejecuta una medición desde la pantalla de Inicio o Resultados para registrar el historial.
+            </Text>
+          </View>
+        ) : (
+          filteredHistory.map((item) => {
+            const badgeColor = getBadgeColor(item.qosSummary.overallScore);
+            const dateStr = new Date(item.timestamp).toLocaleString('es-AR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            });
 
-          return (
-            <View key={item.id} style={styles.sessionCard}>
-              <View style={styles.cardHeader}>
-                <View>
-                  <Text style={styles.cardDate}>{dateStr}</Text>
-                  <Text style={styles.cardNetwork}>
-                    {item.networkState.type.replace('_', ' ')} •{' '}
-                    {item.telephony.carrierName || 'Wi-Fi'}
-                  </Text>
+            return (
+              <View key={item.id} style={styles.sessionCard}>
+                <View style={styles.cardHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardDate}>{dateStr}</Text>
+                    <Text style={styles.cardNetwork}>
+                      {item.networkState.type.replace('_', ' ')} •{' '}
+                      {item.telephony.carrierName || 'Wi-Fi'}
+                    </Text>
+                  </View>
+                  <View style={[styles.scoreBadge, { backgroundColor: `${badgeColor}20` }]}>
+                    <Text style={[styles.scoreBadgeText, { color: badgeColor }]}>
+                      {item.qosSummary.overallScore} / 100
+                    </Text>
+                  </View>
                 </View>
-                <View style={[styles.scoreBadge, { backgroundColor: `${badgeColor}20` }]}>
-                  <Text style={[styles.scoreBadgeText, { color: badgeColor }]}>
-                    {item.qosSummary.overallScore} / 100
-                  </Text>
-                </View>
-              </View>
 
-              <View style={styles.cardMetrics}>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>RTT Prom.</Text>
-                  <Text style={styles.metricVal}>{item.qosSummary.averageLatencyMs} ms</Text>
+                <View style={styles.cardMetrics}>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>RTT Prom.</Text>
+                    <Text style={styles.metricVal}>
+                      {item.qosSummary.averageLatencyMs} ms
+                    </Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Jitter</Text>
+                    <Text style={styles.metricVal}>
+                      {item.qosSummary.averageJitterMs} ms
+                    </Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Pérdida</Text>
+                    <Text style={styles.metricVal}>
+                      {item.qosSummary.averagePacketLossPercent}%
+                    </Text>
+                  </View>
+                  <View style={styles.metricItem}>
+                    <Text style={styles.metricLabel}>Bajada</Text>
+                    <Text style={styles.metricVal}>
+                      {item.throughput ? `${item.throughput.downloadMbps} M` : 'N/D'}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Jitter</Text>
-                  <Text style={styles.metricVal}>{item.qosSummary.averageJitterMs} ms</Text>
-                </View>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Pérdida</Text>
-                  <Text style={styles.metricVal}>{item.qosSummary.averagePacketLossPercent}%</Text>
-                </View>
-                <View style={styles.metricItem}>
-                  <Text style={styles.metricLabel}>Bajada</Text>
-                  <Text style={styles.metricVal}>
-                    {item.throughput ? `${item.throughput.downloadMbps} M` : 'N/D'}
-                  </Text>
-                </View>
-              </View>
 
-              {item.location && (
                 <View style={styles.locationFooter}>
                   <Text style={styles.locationText}>
-                    GPS: {item.location.latitude.toFixed(4)}, {item.location.longitude.toFixed(4)} (±
-                    {item.location.accuracy.toFixed(0)}m)
+                    {item.location
+                      ? `GPS: ${item.location.latitude.toFixed(4)}, ${item.location.longitude.toFixed(4)}`
+                      : 'Sin coordenadas GPS'}
                   </Text>
-                  {item.isBackground && (
-                    <View style={styles.bgBadge}>
-                      <Text style={styles.bgBadgeText}>BACKGROUND</Text>
-                    </View>
-                  )}
+                  <TouchableOpacity
+                    onPress={() => deleteSession(item.id)}
+                    style={styles.deleteButton}
+                  >
+                    <Text style={styles.deleteButtonText}>Eliminar</Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-            </View>
-          );
-        })}
+              </View>
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -270,7 +259,7 @@ const styles = StyleSheet.create({
   exportRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   exportButton: {
     backgroundColor: Colors.surfaceCard,
@@ -291,11 +280,56 @@ const styles = StyleSheet.create({
   exportCsvText: {
     color: Colors.secondary,
   },
+  filterRow: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  filterChip: {
+    backgroundColor: Colors.surfaceCard,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: 'rgba(0, 240, 255, 0.15)',
+    borderColor: Colors.primary,
+  },
+  filterChipText: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: Colors.primary,
+    fontWeight: '700',
+  },
   sectionTitle: {
     ...Typography.badge,
     color: Colors.textMuted,
     marginBottom: 12,
     letterSpacing: 0.8,
+  },
+  emptyContainer: {
+    backgroundColor: Colors.surfaceCard,
+    borderRadius: 14,
+    padding: 30,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  emptyTitle: {
+    ...Typography.h3,
+    color: Colors.textSecondary,
+    marginBottom: 6,
+  },
+  emptySubtitle: {
+    ...Typography.bodySmall,
+    color: Colors.textMuted,
+    textAlign: 'center',
   },
   sessionCard: {
     backgroundColor: Colors.surfaceCard,
@@ -365,15 +399,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'monospace',
   },
-  bgBadge: {
-    backgroundColor: 'rgba(139, 92, 246, 0.2)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  deleteButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  bgBadgeText: {
-    ...Typography.badge,
-    color: '#A78BFA',
-    fontSize: 9,
+  deleteButtonText: {
+    ...Typography.bodySmall,
+    color: Colors.critical,
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -4,12 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { NetworkTechnology } from '../../domain/models/network';
+import { useMeasurementStore } from '../state/useMeasurementStore';
 
 interface MapScreenProps {
   navigation: any;
 }
 
 export const MapScreen: React.FC<MapScreenProps> = () => {
+  const { history } = useMeasurementStore();
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | NetworkTechnology>('ALL');
 
   const filterOptions: Array<{ label: string; value: 'ALL' | NetworkTechnology }> = [
@@ -18,6 +20,18 @@ export const MapScreen: React.FC<MapScreenProps> = () => {
     { label: '4G LTE', value: '4G_LTE' },
     { label: '5G NR', value: '5G_NR' },
   ];
+
+  const geoSessions = history.filter((s) => {
+    if (!s.location) return false;
+    if (selectedFilter === 'ALL') return true;
+    return s.networkState.type === selectedFilter;
+  });
+
+  const getPointColor = (score: number) => {
+    if (score >= 80) return Colors.excellent;
+    if (score >= 50) return Colors.fair;
+    return Colors.critical;
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -47,9 +61,8 @@ export const MapScreen: React.FC<MapScreenProps> = () => {
         })}
       </View>
 
-      {/* Contenedor del Mapa / Visualizador */}
+      {/* Contenedor del Mapa / Visualizador Radar */}
       <View style={styles.mapContainer}>
-        {/* Simulación visual de mapa oscuro con cuadrícula de telemetría */}
         <View style={styles.mapGridOverlay}>
           <View style={styles.radarCenter}>
             <View style={styles.radarRingOuter} />
@@ -60,11 +73,52 @@ export const MapScreen: React.FC<MapScreenProps> = () => {
 
         {/* Overlay informativo sobre el mapa */}
         <View style={styles.mapInfoCard}>
-          <Text style={styles.mapInfoTitle}>Capa de Cobertura Activa</Text>
+          <View style={styles.mapInfoHeader}>
+            <Text style={styles.mapInfoTitle}>Capa de Cobertura Activa</Text>
+            <View style={styles.pointsBadge}>
+              <Text style={styles.pointsBadgeText}>
+                {geoSessions.length} puntos GPS
+              </Text>
+            </View>
+          </View>
           <Text style={styles.mapInfoDesc}>
-            Se activará el Heatmap continuo al acumular ≥5 mediciones georreferenciadas.
+            {geoSessions.length >= 5
+              ? 'Densidad suficiente: Renderizando Heatmap de calor continuo.'
+              : 'Mostrando marcadores georreferenciados individuales.'}
           </Text>
         </View>
+      </View>
+
+      {/* Lista de Puntos Georreferenciados Recientes */}
+      <View style={styles.pointsListContainer}>
+        <Text style={styles.pointsListTitle}>MEDICIONES GEORREFERENCIADAS</Text>
+        <ScrollView style={styles.pointsScroll} showsVerticalScrollIndicator={false}>
+          {geoSessions.length === 0 ? (
+            <Text style={styles.noPointsText}>
+              No hay mediciones con GPS en este filtro. Activa la ubicación y ejecuta una medición.
+            </Text>
+          ) : (
+            geoSessions.map((s) => {
+              const color = getPointColor(s.qosSummary.overallScore);
+              return (
+                <View key={s.id} style={styles.pointRow}>
+                  <View style={[styles.pointDot, { backgroundColor: color }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pointCoords}>
+                      Lat: {s.location?.latitude.toFixed(5)}, Lon: {s.location?.longitude.toFixed(5)}
+                    </Text>
+                    <Text style={styles.pointDetails}>
+                      {s.networkState.type.replace('_', ' ')} • {s.telephony.carrierName || 'Wi-Fi'} • {s.qosSummary.averageLatencyMs} ms
+                    </Text>
+                  </View>
+                  <Text style={[styles.pointScore, { color }]}>
+                    {s.qosSummary.overallScore} pts
+                  </Text>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
       </View>
 
       {/* Leyenda de Calidad */}
@@ -136,7 +190,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   mapContainer: {
-    flex: 1,
+    height: 200,
     marginHorizontal: 16,
     backgroundColor: '#070A10',
     borderRadius: 20,
@@ -157,17 +211,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radarRingOuter: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     borderWidth: 1,
     borderColor: 'rgba(0, 240, 255, 0.2)',
   },
   radarRingInner: {
     position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     borderWidth: 1,
     borderColor: 'rgba(0, 240, 255, 0.35)',
   },
@@ -184,27 +238,94 @@ const styles = StyleSheet.create({
   },
   mapInfoCard: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
+    bottom: 12,
+    left: 12,
+    right: 12,
     backgroundColor: 'rgba(21, 29, 44, 0.92)',
-    padding: 14,
-    borderRadius: 14,
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  mapInfoHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   mapInfoTitle: {
     ...Typography.bodyMedium,
     color: Colors.textPrimary,
     fontWeight: '700',
-    marginBottom: 4,
+  },
+  pointsBadge: {
+    backgroundColor: 'rgba(0, 240, 255, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  pointsBadgeText: {
+    ...Typography.badge,
+    color: Colors.primary,
+    fontSize: 10,
   },
   mapInfoDesc: {
     ...Typography.bodySmall,
     color: Colors.textSecondary,
+    fontSize: 12,
+  },
+  pointsListContainer: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  pointsListTitle: {
+    ...Typography.badge,
+    color: Colors.textMuted,
+    marginBottom: 8,
+  },
+  pointsScroll: {
+    flex: 1,
+  },
+  noPointsText: {
+    ...Typography.bodySmall,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+  pointRow: {
+    backgroundColor: Colors.surfaceCard,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  pointDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  pointCoords: {
+    ...Typography.bodySmall,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+  },
+  pointDetails: {
+    ...Typography.bodySmall,
+    color: Colors.textMuted,
+    fontSize: 11,
+  },
+  pointScore: {
+    ...Typography.bodySmall,
+    fontWeight: '800',
   },
   legendContainer: {
-    padding: 16,
+    padding: 14,
     backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
@@ -212,7 +333,7 @@ const styles = StyleSheet.create({
   legendTitle: {
     ...Typography.badge,
     color: Colors.textMuted,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   legendItemsRow: {
     flexDirection: 'row',
