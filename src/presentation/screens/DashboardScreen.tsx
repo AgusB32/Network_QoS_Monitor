@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { useNetworkStore } from '../state/useNetworkStore';
+import { useMeasurementStore } from '../state/useMeasurementStore';
 import { NetworkStatusHeader } from '../components/NetworkStatusHeader';
 import { MetricCard } from '../components/MetricCard';
 import { PermissionBanner } from '../components/PermissionBanner';
@@ -30,9 +31,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
     requestPermissions,
   } = useNetworkStore();
 
+  const { latestSession, isRunning, runMeasurement } = useMeasurementStore();
+
   useEffect(() => {
     initialize();
   }, []);
+
+  const handleStartMeasurement = () => {
+    navigation.navigate('Resultados');
+    if (!isRunning) {
+      runMeasurement();
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -74,17 +84,39 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             {/* Botón Principal "Medir Ahora" */}
             <TouchableOpacity
               style={styles.measureButton}
-              onPress={() => navigation.navigate('Resultados', { startImmediately: true })}
+              onPress={handleStartMeasurement}
               activeOpacity={0.85}
             >
               <View style={styles.measurePulseCircle} />
-              <View>
-                <Text style={styles.measureButtonTitle}>INICIAR TEST DE QOS</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.measureButtonTitle}>
+                  {isRunning ? 'MEDICIÓN EN PROCESO...' : 'INICIAR TEST DE QOS'}
+                </Text>
                 <Text style={styles.measureButtonSubtitle}>
                   RTT, Jitter RFC 3550, Throughput & GPS
                 </Text>
               </View>
             </TouchableOpacity>
+
+            {/* Tarjeta de Resumen de Última Medición */}
+            {latestSession && (
+              <>
+                <Text style={styles.sectionTitle}>ÚLTIMA MEDICIÓN REALIZADA</Text>
+                <View style={styles.lastSessionCard}>
+                  <View style={styles.lastSessionHeader}>
+                    <Text style={styles.lastSessionTitle}>Puntuación QoS</Text>
+                    <View style={styles.lastSessionScoreBadge}>
+                      <Text style={styles.lastSessionScoreText}>
+                        {latestSession.qosSummary.overallScore} / 100
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.lastSessionMetrics}>
+                    RTT: {latestSession.qosSummary.averageLatencyMs} ms | Jitter: {latestSession.qosSummary.averageJitterMs} ms | Bajada: {latestSession.throughput ? `${latestSession.throughput.downloadMbps} Mbps` : 'N/D'}
+                  </Text>
+                </View>
+              </>
+            )}
 
             {/* Métricas Rápidas del Entorno */}
             <Text style={styles.sectionTitle}>ESTADO DEL DISPOSITIVO</Text>
@@ -107,7 +139,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
                     ? telephony.rssiDbm > -85
                       ? 'Nivel óptimo'
                       : 'Nivel moderado'
-                    : 'Requiere permiso celda'
+                    : 'Lectura celular nativa'
                 }
                 statusColor={
                   telephony.rssiDbm !== null
@@ -131,7 +163,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             <MetricCard
               title="MOTOR DE PROCESAMIENTO"
               value="Clean Architecture (SOLID)"
-              subtitle="Orquestación desacoplada, sondas concurrentes y persistencia SQLite"
+              subtitle="Orquestación desacoplada, sondas concurrentes y persistencia"
               badgeText="V1.0 - FCyT"
               statusColor={Colors.good}
             />
@@ -227,6 +259,41 @@ const styles = StyleSheet.create({
     ...Typography.bodySmall,
     color: Colors.secondary,
     marginTop: 2,
+  },
+  lastSessionCard: {
+    backgroundColor: Colors.surfaceCard,
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+  },
+  lastSessionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  lastSessionTitle: {
+    ...Typography.bodySmall,
+    color: Colors.textMuted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  lastSessionScoreBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  lastSessionScoreText: {
+    ...Typography.badge,
+    color: Colors.excellent,
+    fontWeight: '800',
+  },
+  lastSessionMetrics: {
+    ...Typography.bodySmall,
+    color: Colors.textSecondary,
   },
   sectionTitle: {
     ...Typography.badge,

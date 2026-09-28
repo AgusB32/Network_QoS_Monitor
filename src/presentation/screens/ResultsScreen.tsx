@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -11,47 +11,24 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { MetricCard } from '../components/MetricCard';
-import { DEFAULT_PROBE_HOSTS } from '../../core/constants';
+import { useMeasurementStore } from '../state/useMeasurementStore';
 
 interface ResultsScreenProps {
   navigation: any;
-  route?: any;
 }
 
-export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
-  const [isRunning, setIsRunning] = useState(false);
-  const [progressStage, setProgressStage] = useState<string>('Listo para iniciar');
-
-  // Valores de ejemplo predefinidos (se conectarán dinámicamente al MeasurementOrchestrator en Fase 3)
-  const [hasResults, setHasResults] = useState(false);
-  const [overallScore, setOverallScore] = useState(88);
-  const [avgLatency, setAvgLatency] = useState(24.5);
-  const [jitter, setJitter] = useState(3.2);
-  const [packetLoss, setPacketLoss] = useState(0.0);
-  const [downloadSpeed, setDownloadSpeed] = useState(48.2);
-  const [uploadSpeed, setUploadSpeed] = useState(18.6);
-
-  const startTest = async () => {
-    setIsRunning(true);
-    setProgressStage('1/3 Ejecutando sondas TCP de latencia contra 3 hosts...');
-    setTimeout(() => {
-      setProgressStage('2/3 Midiendo Throughput de descarga y subida...');
-      setTimeout(() => {
-        setProgressStage('3/3 Correlacionando coordenadas GPS y celda...');
-        setTimeout(() => {
-          setIsRunning(false);
-          setHasResults(true);
-          setProgressStage('Medición completada');
-        }, 1000);
-      }, 1200);
-    }, 1200);
-  };
+export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
+  const { isRunning, progress, latestSession, runMeasurement } = useMeasurementStore();
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return Colors.excellent;
     if (score >= 60) return Colors.fair;
     return Colors.critical;
   };
+
+  const score = latestSession?.qosSummary.overallScore ?? 0;
+  const rating = latestSession?.qosSummary.rating ?? 'SIN DATOS';
+  const hasResults = Boolean(latestSession);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -66,13 +43,27 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
         <View style={styles.controlPanel}>
           {isRunning ? (
             <View style={styles.progressContainer}>
-              <ActivityIndicator size="small" color={Colors.primary} />
-              <Text style={styles.progressText}>{progressStage}</Text>
+              <View style={styles.progressHeader}>
+                <ActivityIndicator size="small" color={Colors.primary} />
+                <Text style={styles.progressText}>
+                  {progress?.message || 'Iniciando medición...'}
+                </Text>
+              </View>
+
+              {/* Barra de progreso */}
+              <View style={styles.progressBarTrack}>
+                <View
+                  style={[
+                    styles.progressBarFill,
+                    { width: `${progress?.percent || 10}%` },
+                  ]}
+                />
+              </View>
             </View>
           ) : (
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={startTest}
+              onPress={() => runMeasurement()}
               activeOpacity={0.8}
             >
               <Text style={styles.actionButtonText}>
@@ -86,24 +77,33 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
         <View style={styles.scoreContainer}>
           <Text style={styles.scoreLabel}>PUNTUACIÓN GLOBAL DE RED</Text>
           <View style={styles.scoreRow}>
-            <Text style={[styles.scoreValue, { color: getScoreColor(overallScore) }]}>
-              {overallScore}
+            <Text
+              style={[
+                styles.scoreValue,
+                { color: hasResults ? getScoreColor(score) : Colors.textMuted },
+              ]}
+            >
+              {hasResults ? score : '--'}
             </Text>
             <Text style={styles.scoreMax}>/ 100</Text>
           </View>
           <View
             style={[
               styles.ratingBadge,
-              { backgroundColor: `${getScoreColor(overallScore)}20` },
+              {
+                backgroundColor: hasResults
+                  ? `${getScoreColor(score)}20`
+                  : 'rgba(255, 255, 255, 0.05)',
+              },
             ]}
           >
             <Text
               style={[
                 styles.ratingText,
-                { color: getScoreColor(overallScore) },
+                { color: hasResults ? getScoreColor(score) : Colors.textMuted },
               ]}
             >
-              CALIDAD EXCELENTE
+              {hasResults ? `CALIDAD ${rating}` : 'PRESIONA INICIAR TEST'}
             </Text>
           </View>
         </View>
@@ -113,17 +113,17 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
         <View style={styles.grid}>
           <MetricCard
             title="LATENCIA (RTT PROMEDIO)"
-            value={avgLatency}
+            value={hasResults ? `${latestSession?.qosSummary.averageLatencyMs}` : '--'}
             unit="ms"
-            subtitle="Mín: 18.2 ms | Máx: 32.1 ms"
+            subtitle="Estadística multi-host"
             statusColor={Colors.primary}
             style={styles.halfCard}
           />
           <MetricCard
             title="JITTER (RFC 3550)"
-            value={jitter}
+            value={hasResults ? `${latestSession?.qosSummary.averageJitterMs}` : '--'}
             unit="ms"
-            subtitle="Variación de retardo inter-paquete"
+            subtitle="Variación inter-paquete"
             statusColor={Colors.secondary}
             style={styles.halfCard}
           />
@@ -132,14 +132,18 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
         <View style={styles.grid}>
           <MetricCard
             title="PÉRDIDA DE PAQUETES"
-            value={`${packetLoss}%`}
-            subtitle="0 paquetes perdidos de 15 enviados"
-            statusColor={packetLoss === 0 ? Colors.excellent : Colors.critical}
+            value={hasResults ? `${latestSession?.qosSummary.averagePacketLossPercent}%` : '--%'}
+            subtitle="Sondas TCP respondidas"
+            statusColor={
+              latestSession?.qosSummary.averagePacketLossPercent === 0
+                ? Colors.excellent
+                : Colors.critical
+            }
             style={styles.halfCard}
           />
           <MetricCard
-            title="SERVIDORES SONDEADOS"
-            value={`${DEFAULT_PROBE_HOSTS.length}`}
+            title="HOSTS SONDEADOS"
+            value={hasResults ? `${latestSession?.latencyResults.length}` : '3'}
             unit="hosts"
             subtitle="Cloudflare, Google, Quad9"
             statusColor={Colors.good}
@@ -147,22 +151,57 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
           />
         </View>
 
+        {/* Desglose por Host */}
+        {hasResults && latestSession && latestSession.latencyResults.length > 0 && (
+          <>
+            <Text style={styles.sectionHeader}>DESGLOSE INDIVIDUAL POR HOST</Text>
+            {latestSession.latencyResults.map((hr, idx) => (
+              <View key={idx} style={styles.hostRow}>
+                <View>
+                  <Text style={styles.hostName}>{hr.host}:{hr.port}</Text>
+                  <Text style={styles.hostSub}>
+                    Mín: {hr.minRttMs}ms | Prom: {hr.avgRttMs}ms | Máx: {hr.maxRttMs}ms
+                  </Text>
+                </View>
+                <View style={styles.hostStats}>
+                  <Text style={styles.hostJitter}>Jitter: {hr.jitterMs}ms</Text>
+                  <Text style={[styles.hostLoss, { color: hr.packetLossPercent > 0 ? Colors.critical : Colors.excellent }]}>
+                    {hr.packetLossPercent}% pérdida
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
         {/* Métricas de Throughput */}
         <Text style={styles.sectionHeader}>ANCHO DE BANDA EFECTIVO (THROUGHPUT)</Text>
         <View style={styles.grid}>
           <MetricCard
             title="VELOCIDAD DE BAJADA"
-            value={downloadSpeed}
+            value={
+              latestSession?.throughput
+                ? `${latestSession.throughput.downloadMbps}`
+                : hasResults
+                ? 'N/D'
+                : '--'
+            }
             unit="Mbps"
-            subtitle="Descarga sostenida 5 MB"
+            subtitle="Descarga sostenida"
             statusColor={Colors.excellent}
             style={styles.halfCard}
           />
           <MetricCard
             title="VELOCIDAD DE SUBIDA"
-            value={uploadSpeed}
+            value={
+              latestSession?.throughput
+                ? `${latestSession.throughput.uploadMbps}`
+                : hasResults
+                ? 'N/D'
+                : '--'
+            }
             unit="Mbps"
-            subtitle="Subida sostenida 2 MB"
+            subtitle="Subida sostenida"
             statusColor={Colors.secondary}
             style={styles.halfCard}
           />
@@ -171,15 +210,17 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = ({ navigation }) => {
         {/* Diagnóstico de Experiencia (QoE) */}
         <Text style={styles.sectionHeader}>DIAGNÓSTICO AUTOMÁTICO</Text>
         <View style={styles.diagnosticCard}>
-          <Text style={styles.diagnosticItem}>
-            ✓ Streaming 4K / UHD: Compatible con fluidez óptima.
-          </Text>
-          <Text style={styles.diagnosticItem}>
-            ✓ VoIP y Videollamadas: Excelente estabilidad y bajo retardo.
-          </Text>
-          <Text style={styles.diagnosticItem}>
-            ✓ Juegos en tiempo real: Latencia apta para multijugador competitivo.
-          </Text>
+          {hasResults && latestSession?.qosSummary.diagnostics.length ? (
+            latestSession.qosSummary.diagnostics.map((diag, index) => (
+              <Text key={index} style={styles.diagnosticItem}>
+                • {diag}
+              </Text>
+            ))
+          ) : (
+            <Text style={styles.diagnosticItem}>
+              Ejecuta una medición para obtener el análisis inteligente de tu conexión.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -212,19 +253,32 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: Colors.surfaceCard,
-    padding: 14,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   progressText: {
     ...Typography.bodySmall,
     color: Colors.primary,
     marginLeft: 10,
     fontWeight: '600',
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: Colors.primary,
   },
   actionButton: {
     backgroundColor: Colors.primary,
@@ -289,6 +343,41 @@ const styles = StyleSheet.create({
   },
   halfCard: {
     width: '48.5%',
+  },
+  hostRow: {
+    backgroundColor: Colors.surfaceCard,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  hostName: {
+    ...Typography.bodyMedium,
+    color: Colors.textPrimary,
+    fontWeight: '700',
+    fontFamily: 'monospace',
+  },
+  hostSub: {
+    ...Typography.bodySmall,
+    color: Colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  hostStats: {
+    alignItems: 'flex-end',
+  },
+  hostJitter: {
+    ...Typography.bodySmall,
+    color: Colors.secondary,
+    fontWeight: '600',
+  },
+  hostLoss: {
+    ...Typography.bodySmall,
+    fontSize: 11,
   },
   diagnosticCard: {
     backgroundColor: Colors.surfaceCard,

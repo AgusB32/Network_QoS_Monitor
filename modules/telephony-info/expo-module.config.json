@@ -1,0 +1,10 @@
+{
+  "name": "telephony-info",
+  "platforms": ["android", "ios"],
+  "android": {
+    "package": "expo.modules.telephonyinfo"
+  },
+  "ios": {
+    "modules": ["TelephonyInfoModule"]
+  }
+}
