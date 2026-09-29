@@ -145,7 +145,7 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
             title="HOSTS SONDEADOS"
             value={hasResults ? `${latestSession?.latencyResults.length}` : '3'}
             unit="hosts"
-            subtitle="Cloudflare, Google, Quad9"
+            subtitle="Cloudflare, Google, Cloudflare Sec."
             statusColor={Colors.good}
             style={styles.halfCard}
           />

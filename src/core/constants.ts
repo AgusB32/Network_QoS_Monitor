@@ -1,7 +1,7 @@
 export const DEFAULT_PROBE_HOSTS = [
-  { host: '1.1.1.1', port: 53, label: 'Cloudflare Primary DNS' },
+  { host: '1.1.1.1', port: 80, label: 'Cloudflare Anycast' },
   { host: '8.8.8.8', port: 53, label: 'Google Primary DNS' },
-  { host: '9.9.9.9', port: 53, label: 'Quad9 Security DNS' },
+  { host: '1.0.0.1', port: 80, label: 'Cloudflare Secondary' },
 ];
 
 export const CONFIG = {

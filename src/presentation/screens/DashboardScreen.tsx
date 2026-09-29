@@ -155,8 +155,8 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
             <MetricCard
               title="HOSTS DE SONDAJE CONFIGURADOS"
               value="3 Hosts Activos"
-              subtitle="Cloudflare (1.1.1.1), Google (8.8.8.8), Quad9 (9.9.9.9)"
-              badgeText="TCP Port 53"
+              subtitle="Cloudflare (1.1.1.1), Google (8.8.8.8), Cloudflare (1.0.0.1)"
+              badgeText="TCP Multi-Host"
               statusColor={Colors.secondary}
             />
 
