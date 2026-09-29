@@ -1,37 +1,46 @@
+export const Palette = {
+  color1: '#CFF0EA', // Menta suave claro
+  color2: '#88C9C4', // Turquesa pastel / acento
+  color3: '#3E9B94', // Teal principal
+  color4: '#20666B', // Teal oscuro / bordes
+  color5: '#0C3B45', // Petróleo profundo / superficies
+};
+
 export const Colors = {
-  // Backgrounds
-  background: '#0B0F19',
-  surface: '#151D2C',
-  surfaceCard: '#1A2436',
-  surfaceCardHover: '#212F46',
-  surfaceInput: '#0F1624',
+  // Fondos y Superficies (Paleta suave, sin estridencias)
+  background: '#07242B', // Base oscura profunda en armonía con color5
+  surface: '#0C3B45', // color5
+  surfaceCard: '#104652', // Tarjetas y contenedores
+  surfaceCardHover: '#165360',
+  surfaceInput: '#0A333C',
 
-  // Borders
-  border: '#24334D',
-  borderHighlight: '#3B82F6',
+  // Bordes sutiles
+  border: '#20666B', // color4
+  borderHighlight: '#3E9B94', // color3
 
-  // Accent & Brand
-  primary: '#00F0FF', // Electric cyan for active states & probes
-  primaryGlow: 'rgba(0, 240, 255, 0.2)',
-  secondary: '#38BDF8', // Sky blue
+  // Color de Marca y Acciones
+  primary: '#3E9B94', // color3
+  primaryGlow: 'transparent', // Sin efectos de brillo neon
+  secondary: '#88C9C4', // color2
+  accent: '#CFF0EA', // color1
 
-  // Status & QoS Ratings
-  excellent: '#10B981', // Emerald green
-  good: '#34D399',
-  fair: '#F59E0B', // Amber
-  poor: '#F97316', // Orange
-  critical: '#EF4444', // Red
+  // Estados de Calidad (QoS)
+  excellent: '#88C9C4', // color2 (Excelente)
+  good: '#3E9B94', // color3 (Bueno)
+  fair: '#D6A764', // Tono arena cálido para advertencia moderada
+  poor: '#C97762', // Tono arcilla suave
+  critical: '#C45757', // Rojo mate sobrio
 
-  // Text
-  textPrimary: '#F8FAFC',
-  textSecondary: '#94A3B8',
-  textMuted: '#64748B',
-  textInverse: '#0B0F19',
+  // Tipografía
+  textPrimary: '#CFF0EA', // color1 - Alta legibilidad
+  textSecondary: '#88C9C4', // color2
+  textMuted: '#6B9CA0', // Texto secundario apagado
+  textInverse: '#0C3B45', // color5
 
-  // Network Type Badges
-  wifi: '#38BDF8',
-  cellular5G: '#8B5CF6',
-  cellular4G: '#06B6D4',
-  cellular3G: '#F59E0B',
-  none: '#64748B',
+  // Distintivos de Red
+  wifi: '#88C9C4', // color2
+  cellular5G: '#CFF0EA', // color1
+  cellular4G: '#3E9B94', // color3
+  cellular3G: '#D6A764',
+  none: '#6B9CA0',
 };

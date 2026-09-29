@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   exportButton: {
     backgroundColor: Colors.surfaceCard,
-    borderColor: Colors.primary,
+    borderColor: Colors.borderHighlight,
     borderWidth: 1,
     paddingVertical: 10,
     borderRadius: 10,
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   },
   exportButtonText: {
     ...Typography.badge,
-    color: Colors.primary,
+    color: Colors.textPrimary,
   },
   exportCsvButton: {
     borderColor: Colors.secondary,
@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   filterChipActive: {
-    backgroundColor: 'rgba(0, 240, 255, 0.15)',
-    borderColor: Colors.primary,
+    backgroundColor: 'rgba(62, 155, 148, 0.25)',
+    borderColor: Colors.borderHighlight,
   },
   filterChipText: {
     ...Typography.bodySmall,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: Colors.primary,
+    color: Colors.textPrimary,
     fontWeight: '700',
   },
   sectionTitle: {

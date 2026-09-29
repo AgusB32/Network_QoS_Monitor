@@ -248,8 +248,8 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   filterChipActive: {
-    backgroundColor: 'rgba(0, 240, 255, 0.15)',
-    borderColor: Colors.primary,
+    backgroundColor: 'rgba(62, 155, 148, 0.25)',
+    borderColor: Colors.borderHighlight,
   },
   filterChipText: {
     ...Typography.bodySmall,
@@ -257,13 +257,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: Colors.primary,
+    color: Colors.textPrimary,
     fontWeight: '700',
   },
   mapContainer: {
     height: 250,
     marginHorizontal: 16,
-    backgroundColor: '#070A10',
+    backgroundColor: Colors.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -275,7 +275,7 @@ const styles = StyleSheet.create({
     bottom: 12,
     left: 12,
     right: 12,
-    backgroundColor: 'rgba(21, 29, 44, 0.92)',
+    backgroundColor: 'rgba(12, 59, 69, 0.92)',
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
@@ -293,14 +293,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   pointsBadge: {
-    backgroundColor: 'rgba(0, 240, 255, 0.2)',
+    backgroundColor: 'rgba(62, 155, 148, 0.3)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
   },
   pointsBadgeText: {
     ...Typography.badge,
-    color: Colors.primary,
+    color: Colors.textPrimary,
     fontSize: 10,
   },
   mapInfoDesc: {

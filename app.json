@@ -21,7 +21,7 @@
     "android": {
       "package": "com.agus.networkqosmonitor",
       "adaptiveIcon": {
-        "backgroundColor": "#0B0F19",
+        "backgroundColor": "#0C3B45",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"

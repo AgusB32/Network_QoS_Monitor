@@ -33,7 +33,7 @@ export const AppNavigator: React.FC = () => {
               paddingBottom: bottomInset,
             },
           ],
-          tabBarActiveTintColor: Colors.primary,
+          tabBarActiveTintColor: Colors.secondary,
           tabBarInactiveTintColor: Colors.textMuted,
           tabBarLabelStyle: styles.tabLabel,
         }}
