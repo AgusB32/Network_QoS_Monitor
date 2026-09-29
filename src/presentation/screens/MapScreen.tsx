@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import MapView, { Marker, Circle } from 'react-native-maps';
 import { Colors } from '../theme/colors';
 import { Typography } from '../theme/typography';
 import { NetworkTechnology } from '../../domain/models/network';
 import { useMeasurementStore } from '../state/useMeasurementStore';
+import { useNetworkStore } from '../state/useNetworkStore';
 
 interface MapScreenProps {
   navigation: any;
@@ -12,7 +21,9 @@ interface MapScreenProps {
 
 export const MapScreen: React.FC<MapScreenProps> = () => {
   const { history } = useMeasurementStore();
+  const { currentLocation } = useNetworkStore();
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | NetworkTechnology>('ALL');
+  const mapRef = useRef<MapView | null>(null);
 
   const filterOptions: Array<{ label: string; value: 'ALL' | NetworkTechnology }> = [
     { label: 'Todas', value: 'ALL' },
@@ -32,6 +43,27 @@ export const MapScreen: React.FC<MapScreenProps> = () => {
     if (score >= 50) return Colors.fair;
     return Colors.critical;
   };
+
+  // Coordenada de referencia para centrar el mapa (última sesión o ubicación actual)
+  const referenceCoords = geoSessions[0]?.location || currentLocation || {
+    latitude: -33.03138,
+    longitude: -59.00525,
+  };
+
+  // Animar hacia las coordenadas más recientes cuando haya nuevas mediciones
+  useEffect(() => {
+    if (mapRef.current && referenceCoords) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: referenceCoords.latitude,
+          longitude: referenceCoords.longitude,
+          latitudeDelta: 0.035,
+          longitudeDelta: 0.035,
+        },
+        1000
+      );
+    }
+  }, [referenceCoords.latitude, referenceCoords.longitude]);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
@@ -61,15 +93,54 @@ export const MapScreen: React.FC<MapScreenProps> = () => {
         })}
       </View>
 
-      {/* Contenedor del Mapa / Visualizador Radar */}
+      {/* Contenedor del Mapa Real (react-native-maps) */}
       <View style={styles.mapContainer}>
-        <View style={styles.mapGridOverlay}>
-          <View style={styles.radarCenter}>
-            <View style={styles.radarRingOuter} />
-            <View style={styles.radarRingInner} />
-            <View style={styles.radarBlip} />
-          </View>
-        </View>
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFill}
+          userInterfaceStyle="dark"
+          initialRegion={{
+            latitude: referenceCoords.latitude,
+            longitude: referenceCoords.longitude,
+            latitudeDelta: 0.04,
+            longitudeDelta: 0.04,
+          }}
+          showsUserLocation={true}
+          showsMyLocationButton={true}
+        >
+          {geoSessions.map((s) => {
+            const color = getPointColor(s.qosSummary.overallScore);
+            const lat = s.location!.latitude;
+            const lon = s.location!.longitude;
+
+            return (
+              <React.Fragment key={s.id}>
+                {/* Capa de calor / radio de cobertura alrededor del punto */}
+                <Circle
+                  center={{ latitude: lat, longitude: lon }}
+                  radius={250}
+                  fillColor={`${color}30`}
+                  strokeColor={color}
+                  strokeWidth={1.5}
+                />
+                <Circle
+                  center={{ latitude: lat, longitude: lon }}
+                  radius={100}
+                  fillColor={`${color}60`}
+                  strokeColor="transparent"
+                />
+
+                {/* Marcador interactivo del punto medido */}
+                <Marker
+                  coordinate={{ latitude: lat, longitude: lon }}
+                  title={`${s.qosSummary.overallScore} pts • ${s.networkState.type}`}
+                  description={`RTT: ${s.qosSummary.averageLatencyMs}ms | ${s.telephony.carrierName || 'Wi-Fi'}`}
+                  pinColor={color}
+                />
+              </React.Fragment>
+            );
+          })}
+        </MapView>
 
         {/* Overlay informativo sobre el mapa */}
         <View style={styles.mapInfoCard}>
@@ -77,14 +148,14 @@ export const MapScreen: React.FC<MapScreenProps> = () => {
             <Text style={styles.mapInfoTitle}>Capa de Cobertura Activa</Text>
             <View style={styles.pointsBadge}>
               <Text style={styles.pointsBadgeText}>
-                {geoSessions.length} puntos GPS
+                {geoSessions.length} {geoSessions.length === 1 ? 'PUNTO GPS' : 'PUNTOS GPS'}
               </Text>
             </View>
           </View>
           <Text style={styles.mapInfoDesc}>
             {geoSessions.length >= 5
-              ? 'Densidad suficiente: Renderizando Heatmap de calor continuo.'
-              : 'Mostrando marcadores georreferenciados individuales.'}
+              ? 'Densidad suficiente: Visualizando gradientes de cobertura.'
+              : 'Mostrando marcadores georreferenciados con auras de intensidad.'}
           </Text>
         </View>
       </View>
@@ -190,7 +261,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   mapContainer: {
-    height: 200,
+    height: 250,
     marginHorizontal: 16,
     backgroundColor: '#070A10',
     borderRadius: 20,
@@ -198,43 +269,6 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     overflow: 'hidden',
     position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mapGridOverlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radarCenter: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  radarRingOuter: {
-    width: 180,
-    height: 180,
-    borderRadius: 90,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 240, 255, 0.2)',
-  },
-  radarRingInner: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 240, 255, 0.35)',
-  },
-  radarBlip: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: Colors.primary,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
   },
   mapInfoCard: {
     position: 'absolute',
