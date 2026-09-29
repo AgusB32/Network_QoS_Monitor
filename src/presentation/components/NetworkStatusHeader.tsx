@@ -62,9 +62,15 @@ export const NetworkStatusHeader: React.FC<NetworkStatusHeaderProps> = ({
         </View>
 
         <View style={[styles.column, styles.alignRight]}>
-          <Text style={styles.label}>SEÑAL CELULAR</Text>
+          <Text style={styles.label}>
+            {networkState.isWifi ? 'ENLACE LOCAL' : 'SEÑAL CELULAR'}
+          </Text>
           <Text style={styles.mainInfo}>
-            {telephony.rssiDbm !== null ? `${telephony.rssiDbm} dBm` : 'N/A'}
+            {telephony.rssiDbm !== null
+              ? `${telephony.rssiDbm} dBm`
+              : networkState.isWifi
+              ? 'WLAN Activo'
+              : 'N/A'}
           </Text>
         </View>
       </View>

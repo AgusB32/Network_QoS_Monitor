@@ -131,21 +131,31 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) 
               />
 
               <MetricCard
-                title="INTENSIDAD DE SEÑAL"
-                value={telephony.rssiDbm !== null ? `${telephony.rssiDbm}` : 'N/A'}
+                title={networkState.isWifi ? 'ENLACE LOCAL' : 'SEÑAL CELULAR'}
+                value={
+                  telephony.rssiDbm !== null
+                    ? `${telephony.rssiDbm}`
+                    : networkState.isWifi
+                    ? 'Wi-Fi'
+                    : 'N/A'
+                }
                 unit={telephony.rssiDbm !== null ? 'dBm' : undefined}
                 subtitle={
                   telephony.rssiDbm !== null
                     ? telephony.rssiDbm > -85
                       ? 'Nivel óptimo'
                       : 'Nivel moderado'
-                    : 'Lectura celular nativa'
+                    : networkState.isWifi
+                    ? 'dBm aplica en datos celulares'
+                    : 'Restricción de sandbox iOS'
                 }
                 statusColor={
                   telephony.rssiDbm !== null
                     ? telephony.rssiDbm > -85
                       ? Colors.excellent
                       : Colors.fair
+                    : networkState.isWifi
+                    ? Colors.wifi
                     : Colors.textMuted
                 }
                 style={styles.halfCard}
