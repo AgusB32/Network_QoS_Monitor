@@ -41,3 +41,8 @@ yarn-error.*
 /android
 .gradle/
 **/build/
+
+# Assistant / AI configs
+.claude/
+CLAUDE.md
+AGENTS.md
