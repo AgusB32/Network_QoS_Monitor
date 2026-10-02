@@ -4,6 +4,9 @@ import { ThroughputProgress, ThroughputResult } from '../../domain/models/qos';
 export class HttpThroughputTester implements IThroughputTester {
   private activeAbortController: AbortController | null = null;
 
+  // Endpoint público de fallback con CDN global de alta disponibilidad
+  private static readonly CLOUDFLARE_BASE_URL = 'https://speed.cloudflare.com';
+
   public async measureThroughput(
     serverBaseUrl: string,
     options?: ThroughputOptions
@@ -13,11 +16,30 @@ export class HttpThroughputTester implements IThroughputTester {
     const onProgress = options?.onProgress;
 
     this.activeAbortController = new AbortController();
-
-    const normalizedUrl = serverBaseUrl.replace(/\/$/, '');
     const startTimeOverall = Date.now();
 
-    // 1. Fase de Descarga
+    // 1. Determinar servidor de destino:
+    // Intentar primero con el backend de referencia especificado en el PRD.
+    // Si no responde en 2 segundos (ej. dispositivo físico fuera de red local o backend apagado),
+    // hacer fallback automático a Cloudflare Speedtest Edge para medir ancho de banda 100% real.
+    const isReferenceAvailable = await this.checkServerHealth(serverBaseUrl);
+
+    let downloadUrl: string;
+    let uploadUrl: string;
+    let effectiveServerLabel: string;
+
+    if (isReferenceAvailable) {
+      const normalizedUrl = serverBaseUrl.replace(/\/$/, '');
+      downloadUrl = `${normalizedUrl}/download?bytes=${downloadBytes}`;
+      uploadUrl = `${normalizedUrl}/upload`;
+      effectiveServerLabel = `${serverBaseUrl} (Backend Referencia)`;
+    } else {
+      downloadUrl = `${HttpThroughputTester.CLOUDFLARE_BASE_URL}/__down?bytes=${downloadBytes}`;
+      uploadUrl = `${HttpThroughputTester.CLOUDFLARE_BASE_URL}/__up`;
+      effectiveServerLabel = 'Cloudflare CDN (Público)';
+    }
+
+    // 2. Fase de Descarga
     onProgress?.({
       phase: 'download',
       currentMbps: 0,
@@ -26,13 +48,9 @@ export class HttpThroughputTester implements IThroughputTester {
       progressPercent: 10,
     });
 
-    const downloadResult = await this.testDownload(
-      `${normalizedUrl}/download?bytes=${downloadBytes}`,
-      downloadBytes,
-      onProgress
-    );
+    const downloadResult = await this.testDownload(downloadUrl, downloadBytes, onProgress);
 
-    // 2. Fase de Subida
+    // 3. Fase de Subida
     onProgress?.({
       phase: 'upload',
       currentMbps: downloadResult.mbps,
@@ -41,17 +59,13 @@ export class HttpThroughputTester implements IThroughputTester {
       progressPercent: 55,
     });
 
-    const uploadResult = await this.testUpload(
-      `${normalizedUrl}/upload`,
-      uploadBytes,
-      onProgress
-    );
+    const uploadResult = await this.testUpload(uploadUrl, uploadBytes, onProgress);
 
     const totalDurationMs = Date.now() - startTimeOverall;
 
     onProgress?.({
       phase: 'completed',
-      currentMbps: downloadResult.mbps,
+      currentMbps: uploadResult.mbps,
       bytesTransferred: downloadResult.bytes + uploadResult.bytes,
       totalBytesTarget: downloadBytes + uploadBytes,
       progressPercent: 100,
@@ -63,7 +77,7 @@ export class HttpThroughputTester implements IThroughputTester {
       downloadBytesTransferred: downloadResult.bytes,
       uploadBytesTransferred: uploadResult.bytes,
       durationMs: totalDurationMs,
-      serverUrl: serverBaseUrl,
+      serverUrl: effectiveServerLabel,
     };
   }
 
@@ -71,6 +85,28 @@ export class HttpThroughputTester implements IThroughputTester {
     if (this.activeAbortController) {
       this.activeAbortController.abort();
       this.activeAbortController = null;
+    }
+  }
+
+  /**
+   * Verifica de manera rápida si el backend de referencia responde al endpoint /health.
+   */
+  private async checkServerHealth(serverBaseUrl: string): Promise<boolean> {
+    if (!serverBaseUrl) return false;
+    try {
+      const normalizedUrl = serverBaseUrl.replace(/\/$/, '');
+      const healthController = new AbortController();
+      const timeoutId = setTimeout(() => healthController.abort(), 2000); // 2 segundos máximo
+
+      const res = await fetch(`${normalizedUrl}/health`, {
+        method: 'GET',
+        signal: healthController.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return res.ok;
+    } catch {
+      return false;
     }
   }
 
@@ -92,18 +128,27 @@ export class HttpThroughputTester implements IThroughputTester {
         throw new Error(`HTTP error ${response.status}`);
       }
 
-      const blob = await response.blob();
+      const buffer = await response.arrayBuffer();
       const endTime = performance.now();
       const durationMs = Math.max(1, endTime - startTime);
-      const bytes = blob.size || targetBytes;
+      const bytes = buffer.byteLength || targetBytes;
 
       const durationSec = durationMs / 1000.0;
       const mbps = Number(((bytes * 8) / (durationSec * 1_000_000)).toFixed(2));
 
+      onProgress?.({
+        phase: 'download',
+        currentMbps: mbps,
+        bytesTransferred: bytes,
+        totalBytesTarget: targetBytes,
+        progressPercent: 50,
+      });
+
       return { mbps, bytes, durationMs };
-    } catch {
-      // Fallback de estimación controlada si el servidor local de prueba no está encendido
-      return { mbps: 35.5, bytes: targetBytes, durationMs: 1200 };
+    } catch (err: any) {
+      console.warn('[HttpThroughputTester] Test de descarga falló:', err?.message || err);
+      // NUNCA devolver números falsos/mockeados. En caso de error de red, retornar 0 Mbps reales.
+      return { mbps: 0, bytes: 0, durationMs: 0 };
     }
   }
 
@@ -134,10 +179,19 @@ export class HttpThroughputTester implements IThroughputTester {
       const durationSec = durationMs / 1000.0;
       const mbps = Number(((payloadSize * 8) / (durationSec * 1_000_000)).toFixed(2));
 
+      onProgress?.({
+        phase: 'upload',
+        currentMbps: mbps,
+        bytesTransferred: payloadSize,
+        totalBytesTarget: payloadSize,
+        progressPercent: 90,
+      });
+
       return { mbps, bytes: payloadSize, durationMs };
-    } catch {
-      // Fallback controlado
-      return { mbps: 15.2, bytes: payloadSize, durationMs: 1100 };
+    } catch (err: any) {
+      console.warn('[HttpThroughputTester] Test de subida falló:', err?.message || err);
+      // NUNCA devolver números falsos/mockeados. En caso de error de red, retornar 0 Mbps reales.
+      return { mbps: 0, bytes: 0, durationMs: 0 };
     }
   }
 }

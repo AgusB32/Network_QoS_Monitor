@@ -176,6 +176,11 @@ export const ResultsScreen: React.FC<ResultsScreenProps> = () => {
 
         {/* Métricas de Throughput */}
         <Text style={styles.sectionHeader}>ANCHO DE BANDA EFECTIVO (THROUGHPUT)</Text>
+        {latestSession?.throughput?.serverUrl ? (
+          <Text style={styles.serverInfoBadge}>
+            Servidor: {latestSession.throughput.serverUrl}
+          </Text>
+        ) : null}
         <View style={styles.grid}>
           <MetricCard
             title="VELOCIDAD DE BAJADA"
@@ -336,6 +341,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 8,
     letterSpacing: 0.8,
+  },
+  serverInfoBadge: {
+    ...Typography.bodySmall,
+    color: Colors.primary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 10,
   },
   grid: {
     flexDirection: 'row',
